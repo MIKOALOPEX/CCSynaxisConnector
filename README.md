@@ -2,7 +2,13 @@
 
 NeoForge 1.21.1 compatibility layer for CC: Tweaked and Synaxis.
 
-## Build dependencies
+This mod provides three bridge-style blocks:
+
+- `cc_synaxis_bridge`: named one-way signal slots between CC and Synaxis.
+- `cc_synaxis_super_hub`: a board-style hub for exposing selected CC/Synaxis capabilities to the opposite side.
+- `log_output_assistant`: a Synaxis input board that writes configurable CSV logs.
+
+## Build Dependencies
 
 Most dependencies are resolved from Maven by Gradle. The local `libs/` directory is only for dependencies that are not currently resolved from a public Maven in this project:
 
@@ -11,11 +17,19 @@ Most dependencies are resolved from Maven by Gradle. The local `libs/` directory
 
 `libs/*.jar` is ignored by Git, so dependency jars should not be committed to GitHub.
 
-The `cc_synaxis_bridge` block exposes a CC peripheral, a dynamic Synaxis Cimulink endpoint, and a Synaxis PlantPort provider fallback. Each bridge is a named, single-direction value slot.
+## Dependency Boundary Notes
 
-Right-click the block with an empty hand to open its LDLib/Synaxis-style UI. The UI can create bridges, remove bridges, choose `real` or `boolean`, choose the transfer direction, and inspect the current bridge list.
+The main bridge logic uses CC: Tweaked's public API package and Synaxis' Cimulink/PlantPort integration-facing types first.
 
-## Peripheral methods
+Compatibility fallback for CC:T generic peripherals is isolated in `CcTweakedInternals`. This keeps the non-public CC:T implementation calls easy to audit or remove if upstream APIs change.
+
+Synaxis plant access goes through registered `PlantEndpointProvider` ports and `PlantPortProviders.tryCreate`. The previous direct fallback to Synaxis dynamic motor internals has been removed.
+
+The current block models still parent to `synaxis:block/cimulink_bus/block` in order to match Synaxis' board appearance. Replacing those three block model JSON files with original `ccsconnector` models will remove the remaining model-parent dependency.
+
+Third-party dependency jars, source code, and assets are not intentionally redistributed by this repository.
+
+## Bridge Peripheral Methods
 
 - `list()` / `schema()`
 - `info(name)`
@@ -61,10 +75,12 @@ CC side:
 - `listExposedCc()` lists the CC method rows configured in the Super Hub UI.
 - `getCc(name)` / `getAllCc()` reads the configured CC method row values.
 
-## Copyright and compatibility notice
+## License And Third-Party Notices
 
-CC: Tweaked, Synaxis, Sable, and related names, APIs, trademarks, assets, and original works belong to their respective owners.
+This repository is licensed under the MIT License for this project's original compatibility-layer code and assets only. See [LICENSE](LICENSE).
 
-This project is an independently created, AI-assisted compatibility mod. Its purpose is to provide interoperability between CC: Tweaked and Synaxis. It does not intentionally copy or redistribute third-party assets or source code, and it has no intent to infringe any rights.
+CC: Tweaked, Synaxis, Sable, and related names, APIs, trademarks, assets, source code, binaries, models, textures, documentation, and original works belong to their respective owners and remain under their own upstream terms. This project does not relicense them.
 
-本项目为 AI 辅助开发的兼容性模组，目的是实现 CC: Tweaked 与 Synaxis 之间的互通。CC: Tweaked、Synaxis、Sable 以及相关名称、API、商标、素材和原始作品的版权归各自权利方所有。本项目无故意侵权行为；如权利方认为存在问题，请联系维护者处理。
+CC Synaxis Connector is an independently created, AI-assisted compatibility mod for interoperability between CC: Tweaked and Synaxis. It does not intentionally copy or redistribute third-party assets or source code and has no intent to infringe any rights.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency and rights-holder notes.

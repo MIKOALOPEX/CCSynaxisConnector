@@ -4,7 +4,6 @@ import com.mikoalopex.ccsconnector.CCSConnector;
 import com.mikoalopex.ccsconnector.synaxis.CCSynaxisSuperHubComponent;
 import com.mikoalopex.ccsconnector.synaxis.CCSynaxisSuperHubPlantPort;
 import com.mikoalopex.ccsconnector.synaxis.SynaxisSignalValues;
-import com.verr1.synaxis.content.blocks.motor.AbstractDynamicMotorBlockEntity;
 import com.verr1.synaxis.foundation.blockentity.NetworkBlockEntity;
 import com.verr1.synaxis.foundation.cimulink.core.component.ComponentSchema;
 import com.verr1.synaxis.foundation.cimulink.core.component.ExecutionDomain;
@@ -14,11 +13,8 @@ import com.verr1.synaxis.foundation.cimulink.core.signal.SignalType;
 import com.verr1.synaxis.foundation.cimulink.core.signal.SignalValue;
 import com.verr1.synaxis.foundation.cimulink.game.body.GameThreadPlantPort;
 import com.verr1.synaxis.foundation.cimulink.game.body.PhysicsSafePlantPort;
-import com.verr1.synaxis.foundation.cimulink.game.body.PlantEndpointProvider;
 import com.verr1.synaxis.foundation.cimulink.game.body.PlantPort;
-import com.verr1.synaxis.foundation.cimulink.game.body.PlantPortProviders;
 import com.verr1.synaxis.foundation.cimulink.game.body.PlantRecord;
-import com.verr1.synaxis.foundation.cimulink.game.body.adapter.DynamicMotorPlantPort;
 import com.verr1.synaxis.foundation.cimulink.game.endpoint.CimulinkEndpoint;
 import com.verr1.synaxis.foundation.cimulink.game.endpoint.CimulinkEndpointProvider;
 import com.verr1.synaxis.foundation.cimulink.game.endpoint.EndpointAddress;
@@ -31,14 +27,7 @@ import com.verr1.synaxis.foundation.cimulink.game.runtime.CimulinkWorldRuntimes;
 import com.verr1.synaxis.foundation.physics.SynaxisPhysics;
 import com.verr1.synaxis.foundation.state.StateSchema;
 import dan200.computercraft.api.lua.LuaException;
-import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.peripheral.PeripheralCapability;
-import dan200.computercraft.core.asm.PeripheralMethodSupplier;
-import dan200.computercraft.core.methods.MethodSupplier;
-import dan200.computercraft.core.methods.PeripheralMethod;
-import dan200.computercraft.impl.GenericSources;
-import dan200.computercraft.impl.Peripherals;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -72,7 +61,6 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
     private static final String AVAILABLE_PERIPHERALS_TAG = "AvailablePeripherals";
     private static final String STATUS_TAG = "Status";
     private static final EndpointRuntimeBinding BINDING = EndpointRuntimeBinding.allowing();
-    private static MethodSupplier<PeripheralMethod> peripheralMethodSupplier;
 
     private final LinkedHashMap<String, AvailableDevice> availableDevices = new LinkedHashMap<>();
     private final LinkedHashMap<String, SuperHubEntry> entries = new LinkedHashMap<>();
@@ -595,8 +583,7 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> {
                     IPeripheral peripheral = entry.getValue();
-                    Map<String, PeripheralMethod> methodMap = ccMethodMap(peripheral);
-                    List<String> methods = readableMethods(methodMap.keySet());
+                    List<String> methods = readableMethods(CcPeripheralAccess.methodNames(peripheral));
                     if (methods.isEmpty()) {
                         return;
                     }
@@ -815,61 +802,8 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
     }
 
     private Map<String, IPeripheral> adjacentPeripherals() {
-        Map<String, IPeripheral> result = new LinkedHashMap<>();
         Level level = getLevel();
-        if (level == null) {
-            return result;
-        }
-        for (Direction direction : Direction.values()) {
-            BlockPos targetPos = getBlockPos().relative(direction);
-            IPeripheral peripheral = findPeripheral(targetPos, direction.getOpposite());
-            if (peripheral != null && peripheral != this.peripheral) {
-                result.put(direction.getSerializedName(), peripheral);
-            }
-        }
-        return result;
-    }
-
-    private IPeripheral findPeripheral(BlockPos targetPos, Direction contactSide) {
-        Level level = getLevel();
-        if (level == null) {
-            return null;
-        }
-        IPeripheral peripheral = level.getCapability(PeripheralCapability.get(), targetPos, contactSide);
-        if (peripheral != null) {
-            return peripheral;
-        }
-        peripheral = genericPeripheral(targetPos, contactSide);
-        if (peripheral != null) {
-            return peripheral;
-        }
-        peripheral = level.getCapability(PeripheralCapability.get(), targetPos, null);
-        if (peripheral != null) {
-            return peripheral;
-        }
-        for (Direction side : Direction.values()) {
-            peripheral = level.getCapability(PeripheralCapability.get(), targetPos, side);
-            if (peripheral != null) {
-                return peripheral;
-            }
-            peripheral = genericPeripheral(targetPos, side);
-            if (peripheral != null) {
-                return peripheral;
-            }
-        }
-        return null;
-    }
-
-    private IPeripheral genericPeripheral(BlockPos targetPos, Direction side) {
-        Level level = getLevel();
-        if (!(level instanceof ServerLevel serverLevel)) {
-            return null;
-        }
-        BlockEntity blockEntity = level.getBlockEntity(targetPos);
-        if (blockEntity == null) {
-            return null;
-        }
-        return Peripherals.getGenericPeripheral(serverLevel, targetPos, side, blockEntity);
+        return CcPeripheralAccess.adjacentPeripherals(level, getBlockPos(), peripheral);
     }
 
     private synchronized void applyAvailableDevices(LinkedHashMap<String, AvailableDevice> discovered) {
@@ -965,55 +899,12 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
 
     private Optional<Object[]> callPeripheralMethod(String side, String peripheralType, String methodName, Object... arguments) {
         Map<String, IPeripheral> adjacent = adjacentPeripherals();
-        IPeripheral peripheral = adjacent.get(side);
-        if (peripheral == null || !Objects.equals(peripheral.getType(), peripheralType)) {
-            peripheral = adjacent.values().stream()
-                    .filter(candidate -> Objects.equals(candidate.getType(), peripheralType))
-                    .findFirst()
-                    .orElse(null);
-        }
-        Map<String, PeripheralMethod> methods = ccMethodMap(peripheral);
-        PeripheralMethod method = methods.get(methodName);
-        if (method == null) {
-            return Optional.empty();
-        }
         try {
-            MethodResult result = method.apply(
-                    peripheral,
-                    SuperHubPeripheralCall.DIRECT_CONTEXT,
-                    SuperHubPeripheralCall.computerAccess("super_hub", adjacent),
-                    SuperHubPeripheralCall.arguments(arguments));
-            result = SuperHubPeripheralCall.resolveCompletedTask(result);
-            if (result.getCallback() != null) {
-                return Optional.empty();
-            }
-            Object[] values = result.getResult();
-            return Optional.of(values == null ? new Object[0] : values);
-        } catch (LuaException | RuntimeException exception) {
+            return CcPeripheralAccess.call(adjacent, side, peripheralType, methodName, arguments);
+        } catch (RuntimeException exception) {
             lastCallFailureCount++;
             return Optional.empty();
         }
-    }
-
-    private Map<String, PeripheralMethod> ccMethodMap(IPeripheral peripheral) {
-        if (peripheral == null) {
-            return Map.of();
-        }
-        try {
-            return peripheralMethods().getSelfMethods(peripheral);
-        } catch (RuntimeException exception) {
-            lastMethodDiscoveryFailureCount++;
-            return Map.of();
-        }
-    }
-
-    private static MethodSupplier<PeripheralMethod> peripheralMethods() {
-        MethodSupplier<PeripheralMethod> supplier = peripheralMethodSupplier;
-        if (supplier == null) {
-            supplier = PeripheralMethodSupplier.create(List.copyOf(GenericSources.getAllMethods()));
-            peripheralMethodSupplier = supplier;
-        }
-        return supplier;
     }
 
     private synchronized void applySynaxisSignals(LinkedHashMap<String, SynaxisHubSignal> discovered) {
@@ -1027,24 +918,11 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
     }
 
     private Optional<PlantPort> adjacentPlantPort(CimulinkLevelRuntime runtime, BlockEntity blockEntity, Direction direction) {
-        if (blockEntity instanceof PlantEndpointProvider endpointProvider) {
-            Optional<PlantPort> registered = runtime.runtime().gameServices().plantPort(endpointProvider.plantEndpointId());
-            if (registered.isPresent()) {
-                return registered;
-            }
-        }
-        if (blockEntity instanceof AbstractDynamicMotorBlockEntity motor) {
-            return Optional.of(new DynamicMotorPlantPort(motor, motor.plantEndpointId()));
-        }
-        try {
-            return PlantPortProviders.tryCreate(
-                    blockEntity,
-                    syntheticAdjacentEndpointId(blockEntity, direction),
-                    "adjacent_" + direction.getSerializedName() + "_" + sanitizeSignalName(blockEntity.getType().toString()));
-        } catch (RuntimeException exception) {
-            lastCallFailureCount++;
-            return Optional.empty();
-        }
+        return SynaxisPlantAccess.adjacentPlantPort(
+                runtime,
+                blockEntity,
+                syntheticAdjacentEndpointId(blockEntity, direction),
+                "adjacent_" + direction.getSerializedName() + "_" + sanitizeSignalName(blockEntity.getType().toString()));
     }
 
     private Optional<PlantPort> adjacentPlantPortBySource(CimulinkLevelRuntime runtime, String source, String endpointIdString) {
