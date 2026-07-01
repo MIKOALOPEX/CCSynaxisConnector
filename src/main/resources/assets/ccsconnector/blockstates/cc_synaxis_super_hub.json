@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub"
+    },
+    "facing=west": {
+      "model": "ccsconnector:block/cc_synaxis_super_hub",
+      "x": 90,
+      "y": 270
+    }
+  }
+}
