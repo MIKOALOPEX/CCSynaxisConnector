@@ -1,3 +1,38 @@
 {
-  "parent": "synaxis:block/cimulink_bus/block"
+  "format_version": "1.9.0",
+  "credit": "Made with Blockbench",
+  "parent": "minecraft:block/block",
+  "texture_size": [32, 32],
+  "textures": {
+    "0": "ccsconnector:block/cc_synaxis_super_hub",
+    "particle": "ccsconnector:block/cc_synaxis_super_hub"
+  },
+  "elements": [
+    {
+      "from": [2, 0, 2],
+      "to": [14, 1, 14],
+      "rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+      "faces": {
+        "north": { "uv": [6, 6, 12, 6.5], "texture": "#0" },
+        "east": { "uv": [6, 6, 12, 6.5], "texture": "#0" },
+        "south": { "uv": [6, 6, 12, 6.5], "texture": "#0" },
+        "west": { "uv": [6, 6, 12, 6.5], "texture": "#0" },
+        "up": { "uv": [6, 6, 0, 0], "texture": "#0" },
+        "down": { "uv": [6, 6, 0, 12], "texture": "#0" }
+      }
+    },
+    {
+      "from": [5, 0.2, 5],
+      "to": [11, 1.2, 11],
+      "rotation": { "angle": 0, "axis": "y", "origin": [8, 0, 8] },
+      "faces": {
+        "north": { "uv": [9, 0, 12, 0.5], "texture": "#0" },
+        "east": { "uv": [9, 0, 12, 0.5], "texture": "#0" },
+        "south": { "uv": [9, 0, 12, 0.5], "texture": "#0" },
+        "west": { "uv": [9, 0, 12, 0.5], "texture": "#0" },
+        "up": { "uv": [9, 3, 6, 0], "texture": "#0" },
+        "down": { "uv": [9, 0, 6, 3], "texture": "#0" }
+      }
+    }
+  ]
 }

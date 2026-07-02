@@ -3,7 +3,6 @@ package com.mikoalopex.ccsconnector.content;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.mojang.serialization.MapCodec;
-import com.verr1.synaxis.content.blocks.cimulink.CimulinkEndpointBlock;
 import com.verr1.synaxis.foundation.ui.ldlib.NetworkBlockEntityBlockUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class CCSynaxisBridgeBlock extends BaseEntityBlock implements NetworkBlockEntityBlockUi {
     public static final MapCodec<CCSynaxisBridgeBlock> CODEC = simpleCodec(CCSynaxisBridgeBlock::new);
-    public static final DirectionProperty FACING = CimulinkEndpointBlock.FACING;
+    public static final DirectionProperty FACING = ConnectorBoardGeometry.FACING;
 
     public CCSynaxisBridgeBlock(Properties properties) {
         super(properties);
@@ -109,7 +108,7 @@ public class CCSynaxisBridgeBlock extends BaseEntityBlock implements NetworkBloc
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return CimulinkEndpointBlock.shapeForFacing(state.getValue(FACING));
+        return ConnectorBoardGeometry.shapeForFacing(state.getValue(FACING));
     }
 
     @Override
