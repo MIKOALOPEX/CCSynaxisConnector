@@ -2,6 +2,17 @@ MIT License
 
 Copyright (c) 2026 MIKOALOPEX
 
+License Scope Notice
+
+This license applies only to the original code, assets, and documentation
+created for CC Synaxis Connector and included in this repository.
+
+It does not relicense any third-party dependency, mod, API, trademark, source
+code, binary, model, texture, documentation, or other material provided by
+CC: Tweaked, Synaxis, Sable, LDLib, Create, Flywheel, NeoForge, Minecraft,
+Mojang/Microsoft, or any other third party. Such materials remain under their
+respective upstream licenses, terms, and copyright notices.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
