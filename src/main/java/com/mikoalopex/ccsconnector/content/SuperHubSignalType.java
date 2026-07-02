@@ -34,6 +34,9 @@ public enum SuperHubSignalType {
     }
 
     public static Optional<SuperHubValue> fromLua(Object value) {
+        if (value == null) {
+            return Optional.empty();
+        }
         return switch (value) {
             case Number number -> {
                 double real = number.doubleValue();
