@@ -193,6 +193,12 @@ write to configured writable entries, but it does not create UI exposure rows.
 The `expose` and `toggleExpose` entries are reserved compatibility methods and
 will direct players to configure exposure in the UI.
 
+`set(name, value)` and `write(name, value)` enqueue the write and return once it
+has been accepted. The server applies queued writes in order during subsequent
+server ticks, keeping ComputerCraft worker threads away from world and Synaxis
+state. If the target rejects an accepted write, the hub emits a
+`cc_synaxis_super_hub_write_failed` event with the port name.
+
 Example:
 
 ```lua

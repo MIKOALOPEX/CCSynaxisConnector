@@ -67,10 +67,10 @@ public final class CCSynaxisSuperHubPeripheral implements IDynamicPeripheral {
             case 0, 1 -> MethodResult.of(luaArray(blockEntity.exposedCcInfoList()));
             case 2 -> MethodResult.of(blockEntity.ccLuaValue(arguments.getString(0)));
             case 3 -> MethodResult.of(blockEntity.ccLuaValues());
-            case 4 -> {
+            case 4 -> context.executeMainThreadTask(() -> {
                 blockEntity.refreshNow();
-                yield MethodResult.of(luaArray(blockEntity.exposedCcInfoList()));
-            }
+                return new Object[]{luaArray(blockEntity.exposedCcInfoList())};
+            });
             case 5 -> MethodResult.of(blockEntity.lastUpdateTick(arguments.getString(0)));
             case 6 -> MethodResult.of(luaArray(blockEntity.synaxisSignalInfoList()));
             case 7 -> MethodResult.of(blockEntity.synaxisLuaValue(arguments.getString(0)));
@@ -112,6 +112,10 @@ public final class CCSynaxisSuperHubPeripheral implements IDynamicPeripheral {
         if (entry.target() == SuperHubTarget.CC) {
             computers.queueEvent(TYPE, entry.portName(), entry.luaValue(), entry.type().serializedName());
         }
+    }
+
+    void queueWriteFailed(String portName) {
+        computers.queueEvent(TYPE + "_write_failed", portName);
     }
 
     private static Map<Integer, Object> luaArray(List<Map<String, Object>> values) {

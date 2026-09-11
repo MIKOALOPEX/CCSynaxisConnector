@@ -53,6 +53,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements CimulinkEndpoint, CimulinkEndpointProvider {
     private static final String ENDPOINT_ID_TAG = "EndpointId";
@@ -61,11 +63,15 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
     private static final String AVAILABLE_PERIPHERALS_TAG = "AvailablePeripherals";
     private static final String STATUS_TAG = "Status";
     private static final EndpointRuntimeBinding BINDING = EndpointRuntimeBinding.allowing();
+    private static final int MAX_PENDING_CC_WRITES = 1024;
+    private static final int MAX_CC_WRITES_PER_TICK = 256;
 
     private final LinkedHashMap<String, AvailableDevice> availableDevices = new LinkedHashMap<>();
     private final LinkedHashMap<String, SuperHubEntry> entries = new LinkedHashMap<>();
     private final LinkedHashMap<String, SynaxisHubSignal> synaxisValues = new LinkedHashMap<>();
     private final CCSynaxisSuperHubPeripheral peripheral = new CCSynaxisSuperHubPeripheral(this);
+    private final ConcurrentLinkedQueue<PendingCcWrite> pendingCcWrites = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger pendingCcWriteCount = new AtomicInteger();
 
     private EndpointId endpointId = EndpointId.random();
     private boolean endpointRegistered;
@@ -98,6 +104,7 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
             return;
         }
         CimulinkLevelRuntime runtime = CimulinkWorldRuntimes.forLevel(serverLevel);
+        applyPendingCcWrites(runtime);
         if (!endpointRegistered) {
             runtime.registerEndpoint(this);
             endpointRegistered = true;
@@ -280,12 +287,18 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
             throw new LuaException("Exposure '" + name + "' is read-only");
         }
         SignalValue signalValue = signalValueFromLua(entry.type(), luaValue);
-        CimulinkLevelRuntime runtime = runtimeOrNull();
-        long tick = level == null ? -1L : level.getGameTime();
-        if (!writeEntryValue(entry, luaValue, signalValue, runtime, tick)) {
-            throw new LuaException("Failed to write exposure '" + name + "'");
+        int queued = pendingCcWriteCount.incrementAndGet();
+        if (queued > MAX_PENDING_CC_WRITES) {
+            pendingCcWriteCount.decrementAndGet();
+            throw new LuaException("Super Hub write queue is full");
         }
-        updateEntryValue(entry.id(), normalizedLuaValue(entry.type(), luaValue), signalValue, tick);
+        pendingCcWrites.add(new PendingCcWrite(
+                entry.id(),
+                entry.capabilityId(),
+                entry.type(),
+                entry.portName(),
+                normalizedLuaValue(entry.type(), luaValue),
+                signalValue));
         return true;
     }
 
@@ -882,6 +895,34 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
             return false;
         }
         return writeSynaxisSignal(entry, signalValue, runtime, tick);
+    }
+
+    private void applyPendingCcWrites(CimulinkLevelRuntime runtime) {
+        long tick = level == null ? -1L : level.getGameTime();
+        for (int processed = 0; processed < MAX_CC_WRITES_PER_TICK; processed++) {
+            PendingCcWrite pending = pendingCcWrites.poll();
+            if (pending == null) {
+                return;
+            }
+            pendingCcWriteCount.decrementAndGet();
+
+            SuperHubEntry entry;
+            synchronized (this) {
+                entry = entries.get(pending.entryId());
+            }
+            if (entry == null
+                    || entry.target() != SuperHubTarget.CC
+                    || !entry.input()
+                    || !Objects.equals(entry.capabilityId(), pending.capabilityId())
+                    || entry.type() != pending.type()) {
+                continue;
+            }
+            if (!writeEntryValue(entry, pending.luaValue(), pending.signalValue(), runtime, tick)) {
+                peripheral.queueWriteFailed(pending.portName());
+                continue;
+            }
+            updateEntryValue(entry.id(), pending.luaValue(), pending.signalValue(), tick);
+        }
     }
 
     private void updateEntryValue(String id, Object luaValue, SignalValue signalValue, long tick) {
@@ -1615,5 +1656,14 @@ public class CCSynaxisSuperHubBlockEntity extends NetworkBlockEntity implements 
                     signalValue,
                     tag.getLong("UpdateTick")));
         }
+    }
+
+    private record PendingCcWrite(
+            String entryId,
+            String capabilityId,
+            SuperHubSignalType type,
+            String portName,
+            Object luaValue,
+            SignalValue signalValue) {
     }
 }
